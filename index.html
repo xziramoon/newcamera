@@ -164,7 +164,6 @@
                     mqttBox.style.borderColor = "var(--r)";
                 });
             }
-            // 🔴 ส่งข้อมูลเป็น JSON { barcode: ..., exp: ... }
             send(barcode, exp = '') {
                 if (this.client && this.client.connected) {
                     this.client.publish(AUTO_SYNC_TOPIC, JSON.stringify({ barcode: barcode, exp: exp }));
@@ -264,6 +263,10 @@
                 const safeBarcode = Utils.escapeHTML(barcode);
                 const safeName = isFound ? Utils.escapeHTML(product.ProductName || product.name || product['ชื่อสินค้า']) : "⚠️ ไม่พบในระบบ (ต้องพิมพ์ชื่อเองบนคอม)";
                 
+                // 🟢 ดึงข้อมูล "ราคา" (ดักจับชื่อคอลัมน์หลายรูปแบบ)
+                const rawPrice = isFound ? (product.Price || product.price || product['ราคา'] || product.SalePrice || 'ไม่ระบุ') : '-';
+                const safePrice = Utils.escapeHTML(String(rawPrice));
+
                 const statusColor = isFound ? 'var(--g)' : 'var(--r)';
                 const statusText = isFound ? '✓ TARGET ACQUIRED' : '✕ UNKNOWN TARGET';
 
@@ -271,13 +274,14 @@
                 document.getElementById('result-name').innerText = "รอการยืนยัน...";
                 document.getElementById('result-name').style.color = "var(--o)";
 
-                // 🔴 สร้าง HTML สำหรับ Popup พร้อมช่องใส่วันหมดอายุ
+                // 🔴 สร้าง HTML สำหรับ Popup พร้อมช่องใส่วันหมดอายุ และแสดงราคา
                 const swalHtml = `
                     <div style="font-family:'Orbitron'; font-size:12px; color:${statusColor}; letter-spacing:2px; margin-bottom:5px;">${statusText}</div>
                     <div style="font-family:'Orbitron'; font-size:24px; color:var(--b); margin-bottom:10px; text-shadow: 0 0 10px rgba(0,212,255,.3);">${safeBarcode}</div>
                     
                     <div style="background: rgba(0,0,0,0.5); border: 1px solid ${statusColor}; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
                         <div style="font-family:'Sarabun'; font-size: ${isFound ? '22px' : '18px'}; font-weight: bold; color: ${isFound ? '#fff' : '#ff4444'}; line-height: 1.3;">${safeName}</div>
+                        ${isFound && safePrice !== 'ไม่ระบุ' ? `<div style="font-family:'Orbitron', 'Sarabun'; font-size: 20px; color: var(--o); margin-top: 10px; font-weight: bold; letter-spacing: 1px;">PRICE: ฿${safePrice}</div>` : ''}
                     </div>
                     
                     <div style="text-align: left; padding: 0 10px;">
@@ -303,7 +307,8 @@
                         const success = App.mqtt.send(barcode, expValue);
                         
                         if (success) {
-                            document.getElementById('result-name').innerText = "ส่งข้อมูลสำเร็จ!";
+                            // 🟢 อัปเดตหน้าจอหลักให้แสดงชื่อพร้อมราคา
+                            document.getElementById('result-name').innerHTML = `${safeName} <br><span style="font-size:14px; color:var(--o); font-family: 'Orbitron', 'Sarabun'; letter-spacing: 1px;">PRICE: ฿${safePrice}</span>`;
                             document.getElementById('result-name').style.color = "var(--g)";
                             if (navigator.vibrate) navigator.vibrate([50, 50, 50]); 
                         } else {
